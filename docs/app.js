@@ -38,7 +38,12 @@ const totalNew = () => state.series.reduce((n, s) => n + s.newUrls.length, 0);
 /* ---------- Közvetítő (proxy) ---------- */
 
 const query = o => Object.entries(o).filter(([, v]) => v).map(([k, v]) => k + '=' + encodeURIComponent(v)).join('&');
-const apiBase = () => (state.settings.api ? state.settings.api.replace(/\/+$/, '') + '/' : '') + 'api/';
+// A GitHub Pages nem tud közvetítőt futtatni, ott ez a Cloudflare Worker az alapértelmezés.
+const HOSTED_API = location.hostname.endsWith('.github.io') ? 'https://mangafigyelo.ombolidadi.workers.dev' : '';
+const apiBase = () => {
+  const base = state.settings.api || HOSTED_API;
+  return (base ? base.replace(/\/+$/, '') + '/' : '') + 'api/';
+};
 const imgUrl = (url, ref) => apiBase() + 'img?' + query({ url, ref, k: state.settings.key });
 
 async function getPage(url, ref) {
@@ -458,7 +463,7 @@ function settingsDialog() {
       <p class="hint">Állapot: ${permText}. Az alkalmazáson belüli jelzés és az „új” címkék engedély nélkül is működnek.</p>
       ${perm === 'default' ? '<button type="button" data-act="ask-notify">Értesítések engedélyezése</button>' : ''}
       <h3>Háttérszolgáltatás</h3>
-      <label for="s-api">Címe (üresen: ugyanaz, ahonnan az alkalmazás fut)</label>
+      <label for="s-api">Címe (üresen: az alapértelmezett)</label>
       <input type="url" id="s-api" value="${esc(st.api)}" placeholder="https://…workers.dev" autocapitalize="off" autocorrect="off">
       <label for="s-key">Hozzáférési kulcs (ha beállítottál)</label>
       <input type="password" id="s-key" value="${esc(st.key)}" autocomplete="off">

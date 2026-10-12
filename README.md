@@ -8,18 +8,16 @@ benne olvashatod.
 
 iPaden: Safari → Megosztás → **Főképernyőhöz adás**.
 
-## Egyszeri beállítás: a háttérszolgáltatás
+## A háttérszolgáltatás
 
 Egy böngészőben futó oldal nem tölthet le közvetlenül más webhelyeket, ezért a fejezetlistát és
 a képeket egy kis közvetítő kéri le. A GitHub Pages csak az alkalmazást tudja kiszolgálni, a
-közvetítőt nem – azt egy ingyenes Cloudflare Workerként lehet futtatni:
+közvetítő egy Cloudflare Workerként fut (`mangafigyelo.ombolidadi.workers.dev`, a kódja a
+[`worker.js`](worker.js)); a GitHub Pages-en futó alkalmazás alapból ezt használja.
 
-1. Cloudflare-fiók → *Workers & Pages → Create → Worker* (Hello World sablon) → Deploy.
-2. *Edit code*: a szerkesztő tartalmát cseréld le a [`worker.js`](worker.js) tartalmára → Deploy.
-3. Ajánlott: *Settings → Variables and Secrets* alatt vegyél fel egy `ACCESS_KEY` nevű titkot,
-   hogy más ne használhassa a közvetítődet.
-4. Az alkalmazásban: ⚙ Beállítások → „Háttérszolgáltatás címe” = a Worker címe
-   (`https://….workers.dev`), „Hozzáférési kulcs” = az előbbi titok.
+Ha a Workernél (*Settings → Variables and Secrets*) beállítasz egy `ACCESS_KEY` nevű titkot,
+akkor csak az használhatja, aki ugyanazt megadja az alkalmazásban: ⚙ Beállítások →
+„Hozzáférési kulcs". Saját közvetítő címe ugyanott adható meg.
 
 ## Használat
 
