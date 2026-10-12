@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="hu">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mangafigyelő</title>
+<meta name="theme-color" content="#14141b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mangafigyelő">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="top">
+  <button class="ghost back" data-act="home" id="back" hidden aria-label="Vissza a könyvtárba">‹ Könyvtár</button>
+  <h1 id="heading">Mangafigyelő</h1>
+  <div class="actions">
+    <button class="ghost" data-act="check" id="refresh" aria-label="Új fejezetek keresése">↻ <span>Frissítés</span></button>
+    <button class="primary" data-act="add">＋ <span>Hozzáadás</span></button>
+    <button class="ghost" data-act="settings" aria-label="Beállítások">⚙</button>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<section id="reader" hidden>
+  <div class="rbar rtop">
+    <button class="ghost" data-act="r-close">‹ Vissza</button>
+    <div id="rtitle"></div>
+    <button class="ghost" data-act="r-mode" id="rmode"></button>
+    <button class="ghost" data-act="r-dir" id="rdir"></button>
+    <a class="btn ghost" id="rorig" target="_blank" rel="noopener noreferrer" aria-label="Eredeti oldal">↗</a>
+  </div>
+  <div id="rbody"></div>
+  <div class="rbar rbot">
+    <button class="ghost" data-act="r-prev" id="rprev">‹ Előző fejezet</button>
+    <input type="range" id="rslider" min="1" max="1" value="1" aria-label="Oldal">
+    <span id="rcount"></span>
+    <button class="ghost" data-act="r-next" id="rnext">Következő fejezet ›</button>
+  </div>
+</section>
+
+<dialog id="dlg"></dialog>
+<div id="toast" role="status"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
