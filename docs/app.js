@@ -58,7 +58,14 @@ async function getPage(url, ref) {
     }
     throw new Error(msg || `A háttérszolgáltatás hibát adott (${r.status}).`);
   }
-  return { text: await r.text(), url: r.headers.get('X-Final-Url') || url };
+  return { text: decodeBody(await r.arrayBuffer(), r.headers.get('Content-Type')), url: r.headers.get('X-Final-Url') || url };
+}
+
+// Sok régebbi (főleg magyar) oldal nem UTF-8 kódolású; a kódolást a fejlécből vagy a <meta>-ból vesszük.
+function decodeBody(buf, contentType) {
+  const head = new TextDecoder('latin1').decode(buf.slice(0, 2048));
+  const charset = /charset=["']?([\w-]+)/i.exec(contentType || '')?.[1] || /charset=["']?([\w-]+)/i.exec(head)?.[1] || 'utf-8';
+  try { return new TextDecoder(charset).decode(buf); } catch { return new TextDecoder().decode(buf); }
 }
 
 /* ---------- Források: fejezetlista felismerése ---------- */
