@@ -21,7 +21,9 @@ akkor csak az használhatja, aki ugyanazt megadja az alkalmazásban: ⚙ Beáll�
 
 ## Használat
 
-- **＋ Hozzáadás:** a sorozat fő oldalának címe (ahol a fejezetek listája van). MangaDex-címek
+- **Keresés:** a ＋ Hozzáadás ablakba címet írva a MangaDexen keres, a találatra koppintva felveszi
+  (a Beállításokban megadott nyelvi sorrend szerint, alapból magyar, majd angol fordítással).
+- **＋ Hozzáadás webcímmel:** a sorozat fő oldalának címe (ahol a fejezetek listája van). MangaDex-címek
   (`mangadex.org/title/…`) és RSS-hírcsatornák is megadhatók.
 - **Figyelés:** megnyitáskor, illetve visszatéréskor (10 percnél régebbi ellenőrzés után) fut le;
   kézzel a ↻ Frissítés gombbal. Bezárt alkalmazásnál nincs háttérellenőrzés.

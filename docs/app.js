@@ -10,7 +10,7 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const defaults = () => ({
   series: [],
   lastCheck: 0,
-  settings: { mode: 'scroll', rtl: false, width: 900, api: '', key: '' },
+  settings: { mode: 'scroll', rtl: false, width: 900, api: '', key: '', langs: 'hu, en' },
 });
 
 function loadState() {
@@ -186,6 +186,41 @@ async function fetchMangadex(id, lang) {
     cover: file ? `https://uploads.mangadex.org/covers/${id}/${file}.256.jpg` : '',
     chapters,
   };
+}
+
+const STATUS_HU = { ongoing: 'folyamatban', completed: 'befejezett', hiatus: 'szünetel', cancelled: 'megszakítva' };
+
+function langName(code) {
+  // A MangaDex „es-la” kódja a latin-amerikai spanyolt jelenti, nem Laoszt.
+  const tag = { 'es-la': 'es-419' }[code] || code;
+  try { return new Intl.DisplayNames(['hu'], { type: 'language' }).of(tag) || code; } catch { return code; }
+}
+
+async function searchMangadex(text) {
+  const found = JSON.parse((await getPage('https://api.mangadex.org/manga?limit=15&includes[]=cover_art' +
+    '&order[relevance]=desc&title=' + encodeURIComponent(text))).text);
+  return found.data.map(m => {
+    const a = m.attributes;
+    const file = m.relationships.find(r => r.type === 'cover_art')?.attributes?.fileName;
+    return {
+      id: m.id,
+      title: a.title.en || Object.values(a.title)[0] || '?',
+      huTitle: (a.altTitles || []).find(t => t.hu)?.hu || '',
+      year: a.year,
+      status: STATUS_HU[a.status] || '',
+      cover: file ? `https://uploads.mangadex.org/covers/${m.id}/${file}.256.jpg` : '',
+    };
+  });
+}
+
+// A MangaDex nyelvlistájában a csak külső oldalra mutató (hivatalos kiadású) fejezetek is benne
+// vannak, ezért a legutóbbi, itt ténylegesen olvasható fejezetek nyelveit nézzük meg.
+async function readableLang(id) {
+  const feed = JSON.parse((await getPage(`https://api.mangadex.org/manga/${id}/feed?limit=100&includeExternalUrl=0&order[readableAt]=desc`)).text);
+  const langs = [...new Set(feed.data.filter(c => c.attributes.pages).map(c => c.attributes.translatedLanguage))];
+  const prefs = state.settings.langs.toLowerCase().split(/[\s,;]+/).filter(Boolean);
+  const preferred = prefs.find(l => langs.includes(l));
+  return { lang: preferred || langs[0] || '', preferred: !!preferred };
 }
 
 async function fetchSeries(url, opt) {
@@ -387,13 +422,17 @@ function render() {
 
 const dlg = $('#dlg');
 
+let searchRun = 0;
+const isUrl = v => /^https?:\/\/\S+$/i.test(v.trim());
+
 function seriesDialog(s) {
   const md = s && MANGADEX_RE.test(s.url);
   dlg.innerHTML = `
     <form method="dialog" id="sform">
       <h2>${s ? 'Sorozat szerkesztése' : 'Sorozat hozzáadása'}</h2>
-      <label for="f-url">A sorozat oldalának címe (ahol a fejezetlista van)</label>
-      <input type="url" id="f-url" required placeholder="https://…" value="${esc(s?.url)}" autocapitalize="off" autocorrect="off">
+      <label for="f-url">${s ? 'A sorozat oldalának címe (ahol a fejezetlista van)' : 'Keresés cím alapján – vagy a sorozat oldalának webcíme'}</label>
+      <input type="text" id="f-url" required placeholder="${s ? 'https://…' : 'pl. One Piece vagy https://…'}" value="${esc(s?.url)}" autocapitalize="off" autocorrect="off" enterkeyhint="${s ? 'done' : 'search'}">
+      <div id="f-results"></div>
       <label for="f-title">Cím (üresen hagyva az oldalról veszem)</label>
       <input type="text" id="f-title" value="${esc(s?.title)}">
       ${s ? '' : `<label class="check"><input type="checkbox" id="f-allread"> A meglévő fejezeteket már olvastam</label>`}
@@ -413,9 +452,54 @@ function seriesDialog(s) {
         <button type="submit" class="primary" id="f-ok">${s ? 'Mentés' : 'Hozzáadás'}</button>
       </div>
     </form>`;
+  const okLabel = () => (s ? 'Mentés' : isUrl($('#f-url').value) ? 'Hozzáadás' : 'Keresés');
+  $('#f-url').addEventListener('input', () => { $('#f-ok').textContent = okLabel(); });
+  $('#f-ok').textContent = okLabel();
+  $('#f-results').addEventListener('click', ev => {
+    const pick = ev.target.closest('[data-pick]');
+    if (!pick) return;
+    if (!pick.dataset.lang) return;
+    $('#f-url').value = `https://mangadex.org/title/${pick.dataset.pick}`;
+    $('#f-title').value = '';
+    $('#f-lang').value = pick.dataset.lang;
+    $('#sform').requestSubmit();
+  });
   $('#sform').addEventListener('submit', async ev => {
     ev.preventDefault();
     const err = $('#f-err'), ok = $('#f-ok');
+    if (!isUrl($('#f-url').value)) {
+      if (s) { err.textContent = 'Ide a sorozat oldalának webcíme kell (https://…).'; err.hidden = false; return; }
+      ok.disabled = true; ok.textContent = 'Keresés…'; err.hidden = true;
+      try {
+        const results = await searchMangadex($('#f-url').value.trim());
+        $('#f-results').innerHTML = results.length ? `<p class="hint">Találatok a MangaDexről – koppints arra, amelyiket fel szeretnéd venni:</p>` + results.map(r => `
+          <button type="button" class="result" data-pick="${esc(r.id)}" data-lang="" disabled>
+            <span class="rcover">${r.cover ? `<img src="${esc(imgUrl(r.cover))}" alt="" loading="lazy" onerror="this.remove()">` : ''}</span>
+            <span class="rinfo"><strong>${esc(r.title)}</strong>
+              ${r.huTitle ? `<span>${esc(r.huTitle)}</span>` : ''}
+              <span>${esc([r.year, r.status].filter(Boolean).join(' · '))}</span>
+              <span class="pill">ellenőrzés…</span></span>
+          </button>`).join('') : '<p class="hint">Nincs találat. Próbáld az eredeti (japán/angol) címmel, vagy add meg a sorozat oldalának webcímét.</p>';
+        const run = ++searchRun;
+        const queue = [...results];
+        [0, 1, 2].forEach(async () => {
+          while (queue.length && run === searchRun) {
+            const r = queue.shift();
+            let lang = '', preferred = false;
+            try { ({ lang, preferred } = await readableLang(r.id)); } catch { /* nem elérhető: nem választható */ }
+            const row = $(`#f-results [data-pick="${r.id}"]`);
+            if (!row || run !== searchRun) return;
+            row.dataset.lang = lang;
+            row.disabled = !lang;
+            const pill = $('.pill', row);
+            pill.textContent = !lang ? 'itt nem olvasható' : `${preferred ? '' : 'csak '}${langName(lang)} fordítás`;
+            pill.classList.toggle('new', lang === 'hu');
+          }
+        });
+      } catch (e) { err.textContent = e.message; err.hidden = false; }
+      ok.disabled = false; ok.textContent = okLabel();
+      return;
+    }
     const draft = {
       url: $('#f-url').value.trim(),
       lang: $('#f-lang').value.trim() || 'en',
@@ -429,6 +513,9 @@ function seriesDialog(s) {
     ok.disabled = true; ok.textContent = 'Ellenőrzés…'; err.hidden = true;
     try {
       const data = await fetchSeries(draft.url, draft);
+      if (!data.chapters.length && MANGADEX_RE.test(draft.url)) {
+        throw new Error(`A MangaDexen ehhez nincs olvasható fejezet ezen a nyelven (${draft.lang}).\nA Haladó beállításokban megadhatsz másik nyelvkódot.`);
+      }
       if (!data.chapters.length) {
         throw new Error('Nem találtam fejezeteket ezen az oldalon.\nLehet, hogy az oldal JavaScripttel tölti be a listát, vagy más szerkezetű – próbáld a Haladó beállításokban megadni a fejezetlinkek szelektorát.');
       }
@@ -447,7 +534,7 @@ function seriesDialog(s) {
       if (location.hash === '#s=' + target.id) render(); else location.hash = '#s=' + target.id;
     } catch (e) {
       err.textContent = e.message; err.hidden = false;
-      ok.disabled = false; ok.textContent = s ? 'Mentés' : 'Hozzáadás';
+      ok.disabled = false; ok.textContent = okLabel();
     }
   });
   dlg.showModal();
@@ -466,6 +553,9 @@ function settingsDialog() {
       <label class="check"><input type="checkbox" id="s-rtl" ${st.rtl ? 'checked' : ''}> Jobbról balra lapozás (manga)</label>
       <label for="s-width">Legnagyobb képszélesség görgetős módban (képpont)</label>
       <input type="number" id="s-width" min="400" max="3000" step="50" value="${esc(st.width)}">
+      <h3>Keresés</h3>
+      <label for="s-langs">Előnyben részesített fordítási nyelvek (sorrendben)</label>
+      <input type="text" id="s-langs" value="${esc(st.langs)}" placeholder="hu, en" autocapitalize="off" autocorrect="off">
       <h3>Értesítések</h3>
       <p class="hint">Állapot: ${permText}. Az alkalmazáson belüli jelzés és az „új” címkék engedély nélkül is működnek.</p>
       ${perm === 'default' ? '<button type="button" data-act="ask-notify">Értesítések engedélyezése</button>' : ''}
@@ -487,6 +577,7 @@ function settingsDialog() {
     st.mode = $('#s-mode').value;
     st.rtl = $('#s-rtl').checked;
     st.width = Math.min(3000, Math.max(400, +$('#s-width').value || 900));
+    st.langs = $('#s-langs').value.trim() || 'hu, en';
     st.api = $('#s-api').value.trim();
     st.key = $('#s-key').value;
     save(); applySettings(); render();

@@ -156,3 +156,14 @@ summary { color: var(--muted); cursor: pointer; padding: 6px 0; }
   opacity: 0; pointer-events: none; transition: .25s; max-width: calc(100vw - 32px); text-align: center;
 }
 #toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+/* Keresési találatok */
+#f-results { margin-top: 10px; }
+.result {
+  display: flex; gap: 12px; width: 100%; text-align: left; align-items: stretch; justify-content: flex-start;
+  background: var(--bg); padding: 8px; margin-top: 8px; white-space: normal; min-height: 0;
+}
+.rcover { flex: none; width: 56px; aspect-ratio: 2 / 3; border-radius: 8px; overflow: hidden; background: var(--panel2); position: relative; }
+.rcover img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.rinfo { display: flex; flex-direction: column; gap: 3px; align-items: flex-start; min-width: 0; font-size: 13px; color: var(--muted); }
+.rinfo strong { font-size: 16px; color: var(--text); line-height: 1.25; }
